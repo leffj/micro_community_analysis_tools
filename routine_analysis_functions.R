@@ -42,6 +42,44 @@ load_taxon_table = function(tab_fp, map_fp, filter_cat, filter_vals, keep_vals){
   list(data_loaded = data.use, map_loaded = map.use)
 }
 
+
+load_ts_table = function(tab_fp, map_fp, filter_cat, filter_vals, keep_vals){
+  require(tools)
+  require(biom)
+  # load data
+  if(file_ext(tab_fp) == 'biom'){
+    data = read_biom(tab_fp)
+    data = as.data.frame(as.matrix(biom_data(data)))
+  }
+  else if(file_ext(tab_fp) == 'txt'){
+    data = read.table(tab_fp, header=TRUE, sep="\t", row.names=1, comment.char="", check.names=FALSE)
+  }
+  else stop('Input file must be either biom (.biom) or tab-delimited (.txt) format.')
+  map = read.table(map_fp,sep='\t',comment.char='',header=T,check.names=F,row.names=1)
+  # optionally, subset data
+  # cant subset if trying to filter out certain values and keep certain values
+  # use one or the other
+  if(!missing(filter_vals) & !missing(keep_vals)){
+  }
+  # filter out values within mapping category
+  else if(!missing(filter_cat) & !missing(filter_vals)){
+    map.f = map[!map[,filter_cat] %in% filter_vals, ]
+  }
+  # keep certain values with mapping category
+  else if(!missing(filter_cat) & !missing(keep_vals)){
+    map.f = map[map[,filter_cat] %in% keep_vals, ]
+  }
+  else map.f = map
+  # match up data from dissimilarity matrix with mapping file
+  samplesToUse = intersect(names(data),row.names(map.f))
+  data.use = data[,match(samplesToUse,names(data))]
+  data.use = data.use[rowSums(data.use)!=0,]
+  map.use = map.f[match(samplesToUse,row.names(map.f)),]
+  # output
+  list(data_loaded = data.use, map_loaded = map.use)
+}
+
+
 load_dm = function(dm_fp, map_fp, filter_cat, filter_vals, keep_vals){
   dm = read.table(dm_fp,sep='\t',comment.char='',header=T,check.names=F,row.names=1)
   map = read.table(map_fp,sep='\t',comment.char='',header=T,check.names=F,row.names=1)
@@ -118,6 +156,19 @@ filter_data = function(data, filter_cat, filter_vals, keep_vals){
   list(data_loaded = data.use, map_loaded = map.use)
 }
 
+filter_taxa = function(table, filter_thresh, taxa_to_keep, taxa_to_remove){
+  # filter taxa from otu table or taxa summary table based on mean abundance
+  # optionally, specify additional taxa to keep
+  means = apply(table[, 1:ncol(table)], 1, function(x){mean(x,na.rm=TRUE)})
+  number_retained = sum((means >= filter_thresh) *1)
+  taxa_keep = names(means[means >= filter_thresh])
+  if(!missing(taxa_to_keep)) {taxa_keep = taxa_keep[taxa_keep %in% taxa_to_keep]}
+  if(!missing(taxa_to_remove)) {taxa_keep = taxa_keep[!taxa_keep %in% taxa_to_remove]}
+  table[row.names(table) %in% taxa_keep, ]
+}
+# table = arch_data$data_loaded
+  
+  
 export_otu_table = function(tab, tax_fp, seq_fp, outfp){
   tax = read.table(tax_fp,sep='\t',comment.char='',header=F,check.names=F,row.names=1)
   seqs = read.table(seq_fp,sep='\t',comment.char='',header=F,check.names=F,row.names=1)
@@ -203,6 +254,7 @@ id_treatment_combination = function(col1, col2){
 }
 
 get_mean_dissimilarities = function(data, comparison_cat, within_cat, comparison_cat_val){
+  require(dplyr)
   dm_clmns = convert_dm_to_3_column(data$dm_loaded)
   # list x1 and x2 categories in new clmns
   dm_clmns_wCat = add_metadata_to_df(dm_clmns, data$map_loaded, within_cat)
