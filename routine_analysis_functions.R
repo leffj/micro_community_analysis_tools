@@ -3,6 +3,14 @@
 # FUNCTIONS #
 #############
 
+#' Load in a taxon table (aka. an OTU table) and a corresponding mapping file 
+#' with metadata values. The samples in the loaded taxon table and mapping file 
+#' will be in the same order and only samples in both will be loaded. The function
+#' can optionally filter samples of a specific type based on the mapping file.
+#' This can also be done later via the filter_data() function.
+#' 
+#' @param tab_fp Taxon table file path
+#' @return A list variable with (1) the loaded taxon table, and (2) the loaded mapping file
 load_taxon_table = function(tab_fp, map_fp, filter_cat, filter_vals, keep_vals){
   require(tools)
   require(biom)
